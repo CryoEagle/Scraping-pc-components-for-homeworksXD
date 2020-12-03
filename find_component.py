@@ -29,109 +29,123 @@ class Component:
 
 selected_motherboard = None
 
+def check_proc_compatibility_w_motherboard(patice, chipset):
+    return False
+
 def search_components_by_compName(pageUrl, compName, how_many_products_fetch, architectureType = "all"):
     print("vyhledávám: " + compName)
 
     componentsFound = []
 
+    processed_comps_iteration = 0
     iteration = 0
     last_page = 0
 
-    if pageUrl == "https://www.czc.cz/":
-        page = requests.get(pageUrl + compName + "/hledat") # stránka s produkty
-        soup = BeautifulSoup(page.content, 'html.parser') # parsnutí do zpracovatelné formy
+    while len(componentsFound) < how_many_products_fetch:
+        if processed_comps_iteration != 0:
+            print("Některá data musela být vyhozena, proto sbíráme další data")
+            how_many_products_fetch = how_many_products_fetch - len(componentsFound)
+        processed_comps_iteration += 1
+        if pageUrl == "https://www.czc.cz/":
+            page = None
+            if last_page == 0:
+                page = requests.get(pageUrl + compName + "/hledat") # stránka s produkty
+            else:
+                page = requests.get(pageUrl + compName + "/hledat?q-first="+str(last_page))
+            soup = BeautifulSoup(page.content, 'html.parser') # parsnutí do zpracovatelné formy
 
-        job_elems = soup.find_all('div', class_='new-tile') # vezmeme array produktů (html element)
-        
-        print("dosažený počet produktů: " + str(len(job_elems)))
-        
-        if len(job_elems) > how_many_products_fetch:
-            print("Přesažený počet produktů - zkracuji")
-            for i in range(0, len(job_elems) - how_many_products_fetch): 
-                job_elems.pop()
-
-        while len(job_elems) < how_many_products_fetch:
-            print("nedosažený počet potřebných produktů, opakuji request")
-            another_page = requests.get(pageUrl + compName + "/hledat?q-first=" + str(len(job_elems)))
-            soup_another_page = BeautifulSoup(another_page.content, 'html.parser')
-            job_elems_another_page = soup.find_all('div', class_='new-tile')
-            for job_elem in job_elems_another_page:
-                if len(job_elems) < how_many_products_fetch:
-                    job_elems.append(job_elem)
-                else:
-                    print("dosažený počet produktů: " + str(len(job_elems)))
-                    break
-
-        print("\r\nSbírám specifikace " + compName)
-
-        for job_elem in job_elems: # projíždíme produkty
-            iteration += 1
-            product_name = job_elem.find(class_ = "tile-title").text
-            url_to_specifications = job_elem.find(class_ = "tile-link") # vyhledáme odkaz na produkt
-            url_to_specifications = url_to_specifications.get("href") # vezmeme hodnotu attributu href
+            job_elems = soup.find_all('div', class_='new-tile') # vezmeme array produktů (html element)
             
-            spec_page_url = pageUrl + url_to_specifications[1:] # stránka se specifikací
-            spec_page = requests.get(spec_page_url) # pošleme request
-            soup_spec = BeautifulSoup(spec_page.content, 'html.parser') # parsneme do zpracovatelné formy
-
-            # cena
-            price = soup_spec.find(class_ = "total-price") # najdeme cenu
-            price_final = str(price.find(class_ = "price-vatin").text) # vezmeme text uvnitř komponentu s cenou
-
-            # další parametry
-            params = soup_spec.find(class_ = "pd-parameter-item") # vezmeme element obsahující všechny technický parametry
-
-            # extrakce parametrů do array
-            paramsArray = []
-
-            # technické parametry
-            first_param = params.find("p") # vezmeme první parametr
-            paramsArray.append(first_param) # přidáme do array parametrů
-            first_param_siblings = first_param.find_next_siblings("p") # vezmeme všechny sousedící parametry s prvním parametrem
-            for sibling in first_param_siblings: # sousedící parametry iterujeme a přidáme do array parametrů
-                paramsArray.append(sibling)
-
-            # vrátí hodnotu parametru, pokud nic nenajde vrátí None
-            def get_only_param_val(index):
-                paramVal = paramsArray[index].find("strong")
-                if paramVal != None:
-                    return paramVal.text.strip()
-                else:
-                    return None
+            print("dosažený počet produktů: " + str(len(job_elems)))
             
-            component_object = None # Komponent (SSD, Motherboard, Zdroj...)
+            if len(job_elems) > how_many_products_fetch:
+                print("Přesažený počet produktů - zkracuji")
+                for i in range(0, len(job_elems) - how_many_products_fetch): 
+                    job_elems.pop()
 
-            # pokud nenastane chyba při získávání parametrů vypíšeme obecné informace o produktu
-            # v listu základovek k ID je vynechaná jedna nebo více iterací z důvodu chyby, vyrovnání nelze z důvodu vyčkávání na response webu
-            def print_general_info():
-                print("\r\nID: " + str(iteration) + " " + compName + " produkt:") 
-                print("\tOdkaz: " + spec_page_url)
-                print("\tCena: " + price_final)
+            while len(job_elems) < how_many_products_fetch:
+                print("nedosažený počet potřebných produktů, opakuji request")
+                another_page = requests.get(pageUrl + compName + "/hledat?q-first=" + str(len(job_elems) + last_page))
+                soup_another_page = BeautifulSoup(another_page.content, 'html.parser')
+                job_elems_another_page = soup_another_page.find_all('div', class_='new-tile')
+                for job_elem in job_elems_another_page:
+                    if len(job_elems) < how_many_products_fetch:
+                        job_elems.append(job_elem)
+                    else:
+                        print("dosažený počet produktů: " + str(len(job_elems)))
+                        break
+
+            print("\r\nSbírám specifikace " + compName)
+
+            for job_elem in job_elems: # projíždíme produkty
+                iteration += 1
+                product_name = job_elem.find(class_ = "tile-title").text
+                url_to_specifications = job_elem.find(class_ = "tile-link") # vyhledáme odkaz na produkt
+                url_to_specifications = url_to_specifications.get("href") # vezmeme hodnotu attributu href
+                
+                spec_page_url = pageUrl + url_to_specifications[1:] # stránka se specifikací
+                spec_page = requests.get(spec_page_url) # pošleme request
+                soup_spec = BeautifulSoup(spec_page.content, 'html.parser') # parsneme do zpracovatelné formy
+
+                # cena
+                price = soup_spec.find(class_ = "total-price") # najdeme cenu
+                price_final = str(price.find(class_ = "price-vatin").text) # vezmeme text uvnitř komponentu s cenou
+
+                # další parametry
+                params = soup_spec.find(class_ = "pd-parameter-item") # vezmeme element obsahující všechny technický parametry
+
+                # extrakce parametrů do array
+                paramsArray = []
+
+                # technické parametry
+                first_param = params.find("p") # vezmeme první parametr
+                paramsArray.append(first_param) # přidáme do array parametrů
+                first_param_siblings = first_param.find_next_siblings("p") # vezmeme všechny sousedící parametry s prvním parametrem
+                for sibling in first_param_siblings: # sousedící parametry iterujeme a přidáme do array parametrů
+                    paramsArray.append(sibling)
+
+                # vrátí hodnotu parametru, pokud nic nenajde vrátí None
+                def get_only_param_val(index):
+                    paramVal = paramsArray[index].find("strong")
+                    if paramVal != None:
+                        return paramVal.text.strip()
+                    else:
+                        return None
+                
+                component_object = None # Komponent (SSD, Motherboard, Zdroj...)
+
+                # pokud nenastane chyba při získávání parametrů vypíšeme obecné informace o produktu
+                # v listu základovek k ID je vynechaná jedna nebo více iterací z důvodu chyby, vyrovnání nelze z důvodu vyčkávání na response webu
+                def print_general_info():
+                    print("\r\nID: " + str(iteration) + " " + compName + " produkt:") 
+                    print("\tOdkaz: " + spec_page_url)
+                    print("\tCena: " + price_final)
 
 
-            if compName == Search_enum.SSD:
-                # 2 = kapacita  4 = rychlost čtení 5 = rychlost zápisu
-                component_object = SSD(get_only_param_val(2), get_only_param_val(4), get_only_param_val(5))
-                print_general_info()
-                print("\tKapacita [GB]: " + component_object.Capacity)
-                print("\tRychlost čtení [MB/s]: " + component_object.Speed_read)
-                print("\tRychlost zápisu: [MB/s]" + component_object.Speed_write)
-            elif compName == Search_enum.Motherboard:
                 try:
-                    # 2 = patice  4 = Čipová sada 5 = Formát základní desky
-                    component_object = Motherboard(get_only_param_val(1), get_only_param_val(3), get_only_param_val(6))
-                    print_general_info()
-                    print("\tPatice: " + component_object.Patice)
-                    print("\tČipová sada: " + component_object.Chipset)
-                    print("\tFormát základní desky: " + component_object.Format)
+                    if compName == Search_enum.SSD:
+                        # 2 = kapacita  4 = rychlost čtení 5 = rychlost zápisu
+                        component_object = SSD(get_only_param_val(2), get_only_param_val(4), get_only_param_val(5))
+                        print_general_info()
+                        print("\tKapacita [GB]: " + component_object.Capacity)
+                        print("\tRychlost čtení [MB/s]: " + component_object.Speed_read)
+                        print("\tRychlost zápisu: [MB/s]" + component_object.Speed_write)
+                    elif compName == Search_enum.Motherboard:
+                        # 2 = patice  4 = Čipová sada 5 = Formát základní desky
+                        component_object = Motherboard(get_only_param_val(1), get_only_param_val(3), get_only_param_val(6))
+                        print_general_info()
+                        print("\tPatice: " + component_object.Patice)
+                        print("\tČipová sada: " + component_object.Chipset)
+                        print("\tFormát základní desky: " + component_object.Format)
                 except IndexError:
                     continue
                 except  TypeError:
                     continue
-            component = Component(product_name, spec_page_url, iteration, price_final, compName, component_object)
-            componentsFound.append(component)
-
-        return componentsFound
+                    
+                component = Component(product_name, spec_page_url, iteration, price_final, compName, component_object)
+                componentsFound.append(component)
+            print("Počet nalezených komponentů: " + str(len(componentsFound)))
+    return componentsFound
 
 def compare_products():
 
