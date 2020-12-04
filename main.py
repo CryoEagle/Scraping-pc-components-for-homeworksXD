@@ -30,4 +30,7 @@ print(bcolors.WARNING + r"""\
 
 
 howManyProductsCompare = int(input("Kolikrát mám vzít produktů od jednoho typu komponentu: "))
-components = find_component.hey_spock_beam_my_pc_up(howManyProductsCompare)
+
+scrap_core = find_component.Component_scrap_core()
+
+components = scrap_core.hey_spock_beam_my_pc_up(howManyProductsCompare)
