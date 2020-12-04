@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import requests
+import ExcelWriter
 
 class Search_enum:
     SSD = "SSD"
@@ -226,7 +227,42 @@ class Component_scrap_core:
         
         Procesors = self.search_components_by_compName("https://www.czc.cz/", Search_enum.Procesor, how_many_products_compare)
 
+
+        # test zápisu - kompatibility
+        print("zapisuji do souboru")
+        writer = ExcelWriter.WriteExcel()
+        new_row = 2
+        writer.add_sheet()
+        writer.fill_column_in_loop(1, "A", "Základová deska:")
+        writer.change_cell_size("A:A", 20)
+        writer.change_cell_size("B:B", 20)
+        for attr, value in self.selected_motherboard.__dict__.items():
+            if attr != "Comp_obj":
+                writer.fill_column_in_loop(new_row, "A", attr)
+                new_row = writer.fill_column_in_loop(new_row, "B", value)
+            else:
+                for attrInner, valueInner in self.selected_motherboard.Comp_obj.__dict__.items():
+                    writer.fill_column_in_loop(new_row, "A", attrInner)
+                    new_row = writer.fill_column_in_loop(new_row, "B", valueInner)
+            #print(attr, value)
+
+        writer.fill_column_in_loop(11, "A", "Kompatibilní procesory:")
+        new_row = 12
+
+        for procesor in Procesors:
+            for attr, value in procesor.__dict__.items():
+                if attr != "Comp_obj":
+                    writer.fill_column_in_loop(new_row, "A", attr)
+                    new_row = writer.fill_column_in_loop(new_row, "B", value)
+                else:
+                    for attrInner, valueInner in procesor.Comp_obj.__dict__.items():
+                        writer.fill_column_in_loop(new_row, "A", attrInner)
+                        new_row = writer.fill_column_in_loop(new_row, "B", valueInner)
+            new_row = new_row + 1
+
+        writer.close_workbook()
+
         # Vezmi všechny SSD
-        SSDs = self.search_components_by_compName("https://www.czc.cz/", Search_enum.SSD, how_many_products_compare)
+        #SSDs = self.search_components_by_compName("https://www.czc.cz/", Search_enum.SSD, how_many_products_compare)
 
         return ""
